@@ -26,6 +26,7 @@ type
   FrameIsOwnedAttribute = class(ContextAttribute);
 
   BeforeShowAttribute = class(FrameStandAttribute);
+  AfterShowAttribute = class(FrameStandAttribute);
   ShowAttribute = class(FrameStandAttribute);
   HideAttribute = class(FrameStandAttribute);
 
@@ -49,6 +50,7 @@ type
     FStand: TControl;
     FParent: TFmxObject;
     FCustomBeforeShowMethods: TArray<TRttiMethod>;
+    FCustomAfterShowMethods: TArray<TRttiMethod>;
     FCustomShowMethods: TArray<TRttiMethod>;
     FCustomHideMethods: TArray<TRttiMethod>;
     FContainer: TFmxObject;
@@ -69,6 +71,7 @@ type
     procedure FindCommonActions(const AFmxObject: TFmxObject); virtual;
     function FireCustomMethods(AMethods: TArray<TRttiMethod>): Boolean; virtual;
     function FireCustomBeforeShowMethods: Boolean; virtual;
+    function FireCustomAfterShowMethods: Boolean; virtual;
     function FireCustomShowMethods: Boolean; virtual;
     function FireCustomHideMethods: Boolean; virtual;
     procedure DoBeforeStartAnimation(const AAnimation: TAnimation); virtual;
@@ -418,9 +421,10 @@ begin
   if not Assigned(FStand) then
   begin
     FStand := TLayout.Create(nil);
-    FStand.Align := TAlignLayout.Contents;
+    //FStand.Align := TAlignLayout.Contents;
     FStand.StyleName := 'container';
   end;
+  FStand.Align := TAlignLayout.Contents; // toujours mettre Contents puisque Berlin ne le permet pas
   FStand.Visible := False;
 
   // PARENT
@@ -531,12 +535,16 @@ begin
   LType := LRttiContext.GetType(Frame.ClassInfo);
 
   FCustomBeforeShowMethods := [];
+  FCustomAfterShowMethods := [];
   FCustomShowMethods := [];
   FCustomHideMethods := [];
   for LMethod in LType.GetMethods do
   begin
     if HasAttribute<BeforeShowAttribute>(LMethod) <> nil then
       FCustomBeforeShowMethods := FCustomBeforeShowMethods + [LMethod];
+
+    if HasAttribute<AfterShowAttribute>(LMethod) <> nil then
+      FCustomAfterShowMethods := FCustomAfterShowMethods + [LMethod];
 
     if HasAttribute<ShowAttribute>(LMethod) <> nil then
       FCustomShowMethods := FCustomShowMethods + [LMethod];
@@ -597,6 +605,12 @@ end;
 function TFrameInfo<T>.FireCustomBeforeShowMethods: Boolean;
 begin
   Result := FireCustomMethods(FCustomBeforeShowMethods);
+end;
+
+
+function TFrameInfo<T>.FireCustomAfterShowMethods: Boolean;
+begin
+  Result := FireCustomMethods(FCustomAfterShowMethods);
 end;
 
 function TFrameInfo<T>.FireCustomHideMethods: Boolean;
@@ -792,6 +806,8 @@ begin
   if not FireCustomShowMethods then
     DefaultShow;
   FireShowAnimations;
+  FireCustomAfterShowMethods;
+
 
   if Assigned(ABackgroundTask) then
   begin
@@ -815,6 +831,8 @@ begin
       end
     ).Start;
   end;
+
+
 end;
 
 procedure TFrameInfo<T>.StopAnimations;
