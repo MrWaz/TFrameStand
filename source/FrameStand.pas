@@ -27,6 +27,7 @@ type
 
   BeforeShowAttribute = class(FrameStandAttribute);
   AfterShowAttribute = class(FrameStandAttribute);
+  BeforeHideAttribute = class(FrameStandAttribute);
   ShowAttribute = class(FrameStandAttribute);
   HideAttribute = class(FrameStandAttribute);
 
@@ -52,6 +53,7 @@ type
     FCustomBeforeShowMethods: TArray<TRttiMethod>;
     FCustomAfterShowMethods: TArray<TRttiMethod>;
     FCustomShowMethods: TArray<TRttiMethod>;
+    FCustomBeforeHideMethods: TArray<TRttiMethod>;
     FCustomHideMethods: TArray<TRttiMethod>;
     FContainer: TFmxObject;
     FStandStyleName: string;
@@ -72,6 +74,8 @@ type
     function FireCustomMethods(AMethods: TArray<TRttiMethod>): Boolean; virtual;
     function FireCustomBeforeShowMethods: Boolean; virtual;
     function FireCustomAfterShowMethods: Boolean; virtual;
+    function FireCustomBeforeHideMethods: Boolean; virtual;
+
     function FireCustomShowMethods: Boolean; virtual;
     function FireCustomHideMethods: Boolean; virtual;
     procedure DoBeforeStartAnimation(const AAnimation: TAnimation); virtual;
@@ -472,8 +476,10 @@ begin
     FContainer.RemoveObject(FFrame);
   end;
 
-  Parent.RemoveObject(Stand);
-  Parent := nil;
+  if Assigned(Parent) then begin
+      Parent.RemoveObject(Stand);
+      Parent := nil;
+  end;
 
   if not (csDestroying in FFrameStand.ComponentState) then
   begin
@@ -538,6 +544,7 @@ begin
 
   FCustomBeforeShowMethods := [];
   FCustomAfterShowMethods := [];
+  FCustomBeforeHideMethods := [];
   FCustomShowMethods := [];
   FCustomHideMethods := [];
   for LMethod in LType.GetMethods do
@@ -553,6 +560,9 @@ begin
 
     if HasAttribute<HideAttribute>(LMethod) <> nil then
       FCustomHideMethods := FCustomHideMethods + [LMethod];
+
+    if HasAttribute<BeforeHideAttribute>(LMethod) <> nil then
+        FCustomBeforeHideMethods := FCustomBeforeHideMethods + [LMethod];
   end;
 end;
 
@@ -613,6 +623,11 @@ end;
 function TFrameInfo<T>.FireCustomAfterShowMethods: Boolean;
 begin
   Result := FireCustomMethods(FCustomAfterShowMethods);
+end;
+
+function TFrameInfo<T>.FireCustomBeforeHideMethods: Boolean;
+begin
+  Result := FireCustomMethods(FCustomBeforeHideMethods);
 end;
 
 function TFrameInfo<T>.FireCustomHideMethods: Boolean;
@@ -741,9 +756,12 @@ begin
     if ADelay <> 0 then
       LDelay := ADelay;
 
+
     TDelayedAction.Execute(LDelay
     , procedure
       begin
+        FireCustomBeforeHideMethods;
+
         if not FireCustomHideMethods then
           DefaultHide;
 
